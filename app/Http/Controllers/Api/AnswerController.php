@@ -5,7 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\User;
-use Appp\Question;
+use App\Question;
+use App\Answer;
 
 class AnswerController extends Controller
 {
@@ -30,6 +31,15 @@ class AnswerController extends Controller
     }
     public function storeimg(Request $request)
     {
+        $imgurl = request('upload')->store('uploads','s3');
+        $function_number = $request['CKEditorFuncNum'];
+        $message = '';
+        $url = "https://ds-bucket-final.s3.ap-south-1.amazonaws.com/$imgurl";
+        return "<script type='text/javascript'>window.parent.CKEDITOR.tools.callFunction($function_number, '$url', '$message');</script>";
+    }
+
+    public function img(Request $request)
+    {
         $imagePath = request('img')->store('uploads','public');
 
         return response()->json(
@@ -46,7 +56,7 @@ class AnswerController extends Controller
     public function store(Request $request)
     {
         $validatedData = $request->validate([
-            'answer' => ['required', 'string', 'max:255'],
+            'content' => ['required', 'string', 'max:255'],
         ]);
 
         $id = auth()->user()->id;
@@ -54,7 +64,7 @@ class AnswerController extends Controller
         $answer = new answer;
         $answer -> user_id = $id;
         $answer -> question_id = $request['question_id'];
-        $answer -> answer = $request['answer'];
+        $answer -> answer = $request['content'];
 
         $answer->save();
 
@@ -96,11 +106,11 @@ class AnswerController extends Controller
     public function update(Request $request, $id)
     {
         $validatedData = $request->validate([
-            'answer' => ['required', 'string', 'max:255'],
+            'content' => ['required', 'string', 'max:255'],
         ]);
 
         $answer = Answer::find($id);
-        $answer -> answer = $request['answer'];
+        $answer -> answer = $request['content'];
 
         $answer->save();
 

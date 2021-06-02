@@ -6,7 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\User;
 use App\Answer;
-
+use App\Question;
+use DB;
 class QuestionController extends Controller
 {
     /**
@@ -26,6 +27,40 @@ class QuestionController extends Controller
             'questions' => $quetions,
             ]);
     }
+    public function all()
+    {
+        $questions = DB::table('questions')
+        ->join('users', 'questions.user_id', '=', 'users.id')
+        ->select('questions.id','questions.title','questions.description','questions.category','questions.created_at','users.name')
+        ->orderBy('questions.id', 'DESC')
+        ->get();
+
+        return response()->json(
+            [
+            'questions' => $questions,
+            ]);
+    }
+
+    public function showquestion($id)
+    {
+        $question = Question::find($id);
+        $user_id = $question->user_id;
+        $user = User::find($user_id);
+        $answers = DB::table('answers')
+        ->join('users', 'answers.user_id', '=', 'users.id')
+        ->where('answers.question_id','=',$id)
+        ->select('answers.id','answers.answer','answers.created_at','users.name','users.img')
+        ->orderBy('id', 'DESC')
+        ->get();
+        
+
+        return response()->json(
+            [
+            'user' => $user,
+            'question' => $question,
+            'answers' => $answers,
+            ]);
+    }
 
     /**
      * Show the form for creating a new resource.
@@ -37,6 +72,15 @@ class QuestionController extends Controller
         //
     }
     public function storeimg(Request $request)
+    {
+        $imgurl = request('upload')->store('uploads','s3');
+        $function_number = $request['CKEditorFuncNum'];
+        $message = '';
+        $url = "https://ds-bucket-final.s3.ap-south-1.amazonaws.com/$imgurl";
+        return "<script type='text/javascript'>window.parent.CKEDITOR.tools.callFunction($function_number, '$url', '$message');</script>";
+    }
+
+    public function img(Request $request)
     {
         $imagePath = request('img')->store('uploads','public');
 
@@ -56,7 +100,7 @@ class QuestionController extends Controller
     {
         $validatedData = $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'description' => ['required', 'string'],
+            'content' => ['required', 'string'],
             'category' => ['required', 'string', 'max:255'],
         ]);
 
@@ -65,7 +109,7 @@ class QuestionController extends Controller
         $question = new Question;
         $question -> user_id = $id;
         $question -> title = $request['title'];
-        $question -> description = $request['description'];
+        $question -> description = $request['content'];
         $question -> category = $request['category'];
 
         $question->save();
@@ -87,9 +131,25 @@ class QuestionController extends Controller
         $user_id = auth()->user()->id;
         $user = User::find($user_id);
         $question = Question::find($id);
-        $my_answer = Answer::where('user_id', '=', $user_id)->where('blog_id','=',$id)->get();
+        // $my_answer = Answer::where('user_id', '=', $user_id)->where('question_id','=',$id)->get();
         // $answer = answer::where('user_id', '!=', $user_id)->orWhereNull('user_id')->get();
-        $others_answer = Answer::where('user_id', '!=', $user_id)->where('blog_id','=',$id)->get();
+        // $others_answer = Answer::where('user_id', '!=', $user_id)->where('question_id','=',$id)->get();
+	
+	$my_answer = DB::table('answers')
+        ->join('users', 'answers.user_id', '=', 'users.id')
+        ->where('answers.question_id',$id)
+	->where('answers.user_id',$user_id)
+        ->select('answers.id','answers.answer','answers.created_at','users.name','users.img')
+        ->orderBy('id', 'DESC')
+        ->get();
+
+        $others_answer = DB::table('answers')
+        ->join('users', 'answers.user_id', '=', 'users.id')
+        ->where('answers.question_id',$id)
+	->where('answers.user_id','!=',$user_id)
+        ->select('answers.id','answers.answer','answers.created_at','users.name','users.img')
+        ->orderBy('id', 'DESC')
+        ->get();
 
         return response()->json(
             [
@@ -130,12 +190,12 @@ class QuestionController extends Controller
     {
         $validatedData = $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'description' => ['required', 'string'],
+            'content' => ['required', 'string'],
             'category' => ['required', 'string', 'max:255'],
         ]);
         $question = Question::find($id);
         $question -> title = $request['title'];
-        $question -> description = $request['description'];
+        $question -> description = $request['content'];
         $question -> category = $request['category'];
         $question->save();
 
@@ -163,3 +223,4 @@ class QuestionController extends Controller
         ]);
     }
 }
+
